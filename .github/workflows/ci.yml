@@ -15,7 +15,20 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Toolchain version
-        run: moon version --all
+        shell: bash
+        run: |
+          moon version --all
+          required="0.10.14"
+          actual="$(moon version --all | sed -n 's/^moonc v\([0-9][0-9.]*\).*/\1/p')"
+          if [ -z "$actual" ]; then
+            echo "Unable to determine moonc version" >&2
+            exit 1
+          fi
+          oldest="$(printf '%s\n' "$required" "$actual" | sort -V | head -n 1)"
+          if [ "$oldest" != "$required" ]; then
+            echo "moonc $actual is older than required $required" >&2
+            exit 1
+          fi
       - name: Format
         run: moon fmt --check
       - name: Check
@@ -24,3 +37,7 @@ jobs:
         run: moon build --target all
       - name: Test
         run: moon test --target all
+      - name: Generate public package interface
+        run: moon info
+      - name: Run documented example
+        run: moon run cmd/main --target wasm
