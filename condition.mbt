@@ -74,6 +74,12 @@ pub fn VariableSet::length(self : VariableSet) -> Int {
 }
 
 ///|
+/// Create an independent copy suitable for runtime snapshots.
+pub fn VariableSet::copy(self : VariableSet) -> VariableSet {
+  { values: self.values.copy(), }
+}
+
+///|
 /// Result of evaluating the intentionally small first-release condition language.
 pub(all) enum ConditionResult {
   ConditionMatched(Bool)

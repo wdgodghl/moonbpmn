@@ -18,6 +18,8 @@ pub extend RunStatus with Debug::{to_repr}
 pub(all) enum ExecutionEventKind {
   NodeEntered
   FlowSelected
+  TaskWaiting
+  TaskCompleted
   ProcessCompleted
   ExecutionStopped
 } derive(Eq, Debug)

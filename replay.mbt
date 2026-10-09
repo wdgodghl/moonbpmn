@@ -35,6 +35,7 @@ pub fn replay(events : Array[ExecutionEvent]) -> ReplayResult {
     match event.kind {
       NodeEntered => visited_nodes.push(event.element_id)
       FlowSelected => selected_flows.push(event.element_id)
+      TaskWaiting | TaskCompleted => ()
       ProcessCompleted => {
         terminal = true
         completed = true

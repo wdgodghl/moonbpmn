@@ -23,6 +23,8 @@ fn execution_event_kind_name(kind : ExecutionEventKind) -> String {
   match kind {
     NodeEntered => "node_entered"
     FlowSelected => "flow_selected"
+    TaskWaiting => "task_waiting"
+    TaskCompleted => "task_completed"
     ProcessCompleted => "process_completed"
     ExecutionStopped => "execution_stopped"
   }
