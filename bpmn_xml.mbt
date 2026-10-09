@@ -14,10 +14,25 @@ pub extend BpmnImportIssueCode with Eq::{equal, not_equal}
 pub extend BpmnImportIssueCode with Debug::{to_repr}
 
 ///|
+/// One-based line and column plus zero-based UTF-16 source offset.
+pub(all) struct BpmnSourceLocation {
+  line : Int
+  column : Int
+  offset : Int
+} derive(Eq, Debug)
+
+///|
+pub extend BpmnSourceLocation with Eq::{equal, not_equal}
+
+///|
+pub extend BpmnSourceLocation with Debug::{to_repr}
+
+///|
 pub(all) struct BpmnImportIssue {
   code : BpmnImportIssueCode
   element : String
   message : String
+  location : BpmnSourceLocation
 }
 
 ///|
@@ -32,8 +47,26 @@ fn import_issue(
   code : BpmnImportIssueCode,
   element : String,
   message : String,
+  location : BpmnSourceLocation,
 ) -> Unit {
-  issues.push({ code, element, message, })
+  issues.push({ code, element, message, location, })
+}
+
+///|
+fn source_location(xml : String, offset : Int) -> BpmnSourceLocation {
+  let mut line = 1
+  let mut column = 1
+  let mut index = 0
+  while index < offset && index < xml.length() {
+    if xml.unsafe_get(index).to_int() == 10 {
+      line = line + 1
+      column = 1
+    } else {
+      column = column + 1
+    }
+    index = index + 1
+  }
+  { line, column, offset, }
 }
 
 ///|
@@ -81,6 +114,7 @@ fn required_attribute(
   element : String,
   name : String,
   issues : Array[BpmnImportIssue],
+  location : BpmnSourceLocation,
 ) -> String? {
   match xml_attribute(tag, name) {
     Some(value) => Some(value)
@@ -90,6 +124,7 @@ fn required_attribute(
         MissingAttribute,
         element,
         element + " requires attribute " + name,
+        location,
       )
       None
     }
@@ -103,8 +138,9 @@ fn add_imported_node(
   kind : NodeKind,
   element : String,
   issues : Array[BpmnImportIssue],
+  location : BpmnSourceLocation,
 ) -> Unit {
-  match required_attribute(tag, element, "id", issues) {
+  match required_attribute(tag, element, "id", issues, location) {
     None => ()
     Some(id) => {
       let name = match xml_attribute(tag, "name") {
@@ -163,12 +199,25 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
       MalformedXml,
       "",
       "document does not contain XML elements",
+      source_location(xml, 0),
     )
     return ImportFailure(issues)
   }
   let mut process : ProcessModel? = None
   let mut last_flow_index : Int? = None
+  let mut piece_index = 0
+  let mut tag_offset = xml.find("<").unwrap_or(0)
   for piece in xml.split("<") {
+    if piece_index == 0 {
+      piece_index = 1
+      continue
+    }
+    let location = source_location(xml, tag_offset)
+    let after_open = tag_offset + 1
+    match xml[after_open:].find("<") {
+      Some(relative) => tag_offset = after_open + relative
+      None => ()
+    }
     match piece.split_once(">") {
       None => ()
       Some((header_view, body_view)) => {
@@ -193,13 +242,14 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
                 MalformedXml,
                 "conditionExpression",
                 "unterminated CDATA condition",
+                location,
               )
           }
           continue
         }
         let element_name = xml_local_name(header)
         if element_name == "process" {
-          match required_attribute(header, "process", "id", issues) {
+          match required_attribute(header, "process", "id", issues, location) {
             None => ()
             Some(id) => {
               let name = match xml_attribute(header, "name") {
@@ -222,11 +272,26 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
                   StartEvent,
                   element_name,
                   issues,
+                  location,
                 )
               "endEvent" =>
-                add_imported_node(model, header, EndEvent, element_name, issues)
+                add_imported_node(
+                  model,
+                  header,
+                  EndEvent,
+                  element_name,
+                  issues,
+                  location,
+                )
               "task" =>
-                add_imported_node(model, header, Task, element_name, issues)
+                add_imported_node(
+                  model,
+                  header,
+                  Task,
+                  element_name,
+                  issues,
+                  location,
+                )
               "exclusiveGateway" =>
                 add_imported_node(
                   model,
@@ -234,6 +299,7 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
                   ExclusiveGateway,
                   element_name,
                   issues,
+                  location,
                 )
               "parallelGateway" =>
                 add_imported_node(
@@ -242,14 +308,17 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
                   ParallelGateway,
                   element_name,
                   issues,
+                  location,
                 )
               "sequenceFlow" => {
-                let id = required_attribute(header, element_name, "id", issues)
+                let id = required_attribute(
+                  header, element_name, "id", issues, location,
+                )
                 let source = required_attribute(
-                  header, element_name, "sourceRef", issues,
+                  header, element_name, "sourceRef", issues, location,
                 )
                 let target = required_attribute(
-                  header, element_name, "targetRef", issues,
+                  header, element_name, "targetRef", issues, location,
                 )
                 match (id, source, target) {
                   (Some(id), Some(source), Some(target)) => {
@@ -278,6 +347,7 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
                     UnsupportedElement,
                     element_name,
                     "unsupported BPMN element: " + element_name,
+                    location,
                   )
                 }
             }
@@ -287,7 +357,13 @@ pub fn import_bpmn_xml(xml : String) -> BpmnImportResult {
   }
   match process {
     None => {
-      import_issue(issues, MissingProcess, "", "document has no BPMN process")
+      import_issue(
+        issues,
+        MissingProcess,
+        "",
+        "document has no BPMN process",
+        source_location(xml, 0),
+      )
       ImportFailure(issues)
     }
     Some(model) => ImportSuccess(model, issues)

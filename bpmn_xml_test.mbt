@@ -65,3 +65,20 @@ test "BPMN XML importer rejects documents without a process" {
       assert_eq(issues[0].code, @moonbpmn.BpmnImportIssueCode::MissingProcess)
   }
 }
+
+///|
+test "BPMN XML issues include source line and column" {
+  let xml = "<definitions>\n" +
+    "  <process id=\"located\">\n" +
+    "    <task name=\"Missing id\" />\n" +
+    "  </process>\n" +
+    "</definitions>"
+  match @moonbpmn.import_bpmn_xml(xml) {
+    ImportFailure(_) => fail("process container should import")
+    ImportSuccess(_, issues) => {
+      assert_eq(issues.length(), 1)
+      assert_eq(issues[0].location.line, 3)
+      assert_eq(issues[0].location.column, 5)
+    }
+  }
+}
