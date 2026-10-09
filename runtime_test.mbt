@@ -86,3 +86,21 @@ test "parallel join waits for every incoming token" {
   ])
   assert_eq(result.visited_nodes.length(), 7)
 }
+
+///|
+test "runner emits an ordered append-only event log" {
+  let process = @moonbpmn.ProcessModel::new("events", "Events")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("finish", "start", "done"))
+  let result = @moonbpmn.run(process, @moonbpmn.VariableSet::new(), 10)
+  assert_eq(result.events.length(), 4)
+  assert_eq(result.events[0].sequence, 0)
+  assert_eq(result.events[0].kind, @moonbpmn.ExecutionEventKind::NodeEntered)
+  assert_eq(result.events[1].kind, @moonbpmn.ExecutionEventKind::FlowSelected)
+  assert_eq(result.events[2].element_id, "done")
+  assert_eq(
+    result.events[3].kind,
+    @moonbpmn.ExecutionEventKind::ProcessCompleted,
+  )
+}

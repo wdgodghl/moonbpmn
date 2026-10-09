@@ -14,11 +14,36 @@ pub extend RunStatus with Eq::{equal, not_equal}
 pub extend RunStatus with Debug::{to_repr}
 
 ///|
+/// Stable event kinds emitted by the in-memory runner.
+pub(all) enum ExecutionEventKind {
+  NodeEntered
+  FlowSelected
+  ProcessCompleted
+  ExecutionStopped
+} derive(Eq, Debug)
+
+///|
+pub extend ExecutionEventKind with Eq::{equal, not_equal}
+
+///|
+pub extend ExecutionEventKind with Debug::{to_repr}
+
+///|
+/// One append-only execution event. Sequence numbers start at zero.
+pub(all) struct ExecutionEvent {
+  sequence : Int
+  kind : ExecutionEventKind
+  element_id : String
+  detail : String
+}
+
+///|
 /// Immutable result returned by the bounded in-memory runner.
 pub(all) struct ExecutionResult {
   status : RunStatus
   visited_nodes : Array[String]
   selected_flows : Array[String]
+  events : Array[ExecutionEvent]
   steps : Int
 }
 
@@ -28,12 +53,29 @@ pub fn ExecutionResult::is_completed(self : ExecutionResult) -> Bool {
 }
 
 ///|
+fn record_event(
+  events : Array[ExecutionEvent],
+  kind : ExecutionEventKind,
+  element_id : String,
+  detail : String,
+) -> Unit {
+  events.push({ sequence: events.length(), kind, element_id, detail, })
+}
+
+///|
 fn enqueue_flow(
   queue : Array[String],
   selected_flows : Array[String],
+  events : Array[ExecutionEvent],
   flow : SequenceFlow,
 ) -> Unit {
   selected_flows.push(flow.id)
+  record_event(
+    events,
+    FlowSelected,
+    flow.id,
+    flow.source + " -> " + flow.target,
+  )
   queue.push(flow.target)
 }
 
@@ -42,9 +84,11 @@ fn stalled(
   message : String,
   visited_nodes : Array[String],
   selected_flows : Array[String],
+  events : Array[ExecutionEvent],
   steps : Int,
 ) -> ExecutionResult {
-  { status: RunStalled(message), visited_nodes, selected_flows, steps, }
+  record_event(events, ExecutionStopped, "", message)
+  { status: RunStalled(message), visited_nodes, selected_flows, events, steps, }
 }
 
 ///|
@@ -53,23 +97,27 @@ fn stalled(
 /// Tasks complete immediately in this library-level runner. Exclusive gateways
 /// select the first true conditional flow in declaration order and fall back to
 /// the single unconditional flow. Parallel gateways emit one token per outgoing
-/// flow. `max_steps` bounds cycles and malformed models.
+/// flow and synchronize joins. `max_steps` bounds cycles and malformed models.
 pub fn run(
   process : ProcessModel,
   variables : VariableSet,
   max_steps : Int,
 ) -> ExecutionResult {
   if !validate(process).is_valid() {
+    let events : Array[ExecutionEvent] = []
+    record_event(events, ExecutionStopped, process.id, "model is invalid")
     return {
       status: RunInvalidModel,
       visited_nodes: [],
       selected_flows: [],
+      events,
       steps: 0,
     }
   }
   let queue : Array[String] = []
   let visited_nodes : Array[String] = []
   let selected_flows : Array[String] = []
+  let events : Array[ExecutionEvent] = []
   let parallel_arrivals : Array[String] = []
   for node in process.nodes {
     if node.kind == StartEvent {
@@ -81,10 +129,12 @@ pub fn run(
   let mut completed_tokens = 0
   while cursor < queue.length() {
     if steps >= max_steps {
+      record_event(events, ExecutionStopped, "", "step limit exceeded")
       return {
         status: RunStepLimitExceeded,
         visited_nodes,
         selected_flows,
+        events,
         steps,
       }
     }
@@ -92,6 +142,7 @@ pub fn run(
     cursor = cursor + 1
     steps = steps + 1
     visited_nodes.push(node_id)
+    record_event(events, NodeEntered, node_id, "token entered node")
     let node = match process.find_node(node_id) {
       Some(node) => node
       None =>
@@ -99,6 +150,7 @@ pub fn run(
           "token reached missing node: " + node_id,
           visited_nodes,
           selected_flows,
+          events,
           steps,
         )
     }
@@ -123,6 +175,7 @@ pub fn run(
                     "unknown condition variable: " + name,
                     visited_nodes,
                     selected_flows,
+                    events,
                     steps,
                   )
                 NonBooleanVariable(name) =>
@@ -130,6 +183,7 @@ pub fn run(
                     "condition variable is not boolean: " + name,
                     visited_nodes,
                     selected_flows,
+                    events,
                     steps,
                   )
               }
@@ -139,12 +193,13 @@ pub fn run(
           selected = default_flow
         }
         match selected {
-          Some(flow) => enqueue_flow(queue, selected_flows, flow)
+          Some(flow) => enqueue_flow(queue, selected_flows, events, flow)
           None =>
             return stalled(
               "exclusive gateway has no matching branch: " + node.id,
               visited_nodes,
               selected_flows,
+              events,
               steps,
             )
         }
@@ -162,7 +217,7 @@ pub fn run(
         }
         if required <= 1 || arrivals % required == 0 {
           for flow in outgoing {
-            enqueue_flow(queue, selected_flows, flow)
+            enqueue_flow(queue, selected_flows, events, flow)
           }
         }
       }
@@ -172,18 +227,21 @@ pub fn run(
             "node requires exactly one outgoing flow: " + node.id,
             visited_nodes,
             selected_flows,
+            events,
             steps,
           )
         }
-        enqueue_flow(queue, selected_flows, outgoing[0])
+        enqueue_flow(queue, selected_flows, events, outgoing[0])
       }
     }
   }
   if completed_tokens > 0 {
-    { status: RunCompleted, visited_nodes, selected_flows, steps, }
+    record_event(events, ProcessCompleted, process.id, "execution completed")
+    { status: RunCompleted, visited_nodes, selected_flows, events, steps, }
   } else {
     stalled(
-      "execution ended without an end event", visited_nodes, selected_flows, steps,
+      "execution ended without an end event", visited_nodes, selected_flows, events,
+      steps,
     )
   }
 }
