@@ -96,6 +96,22 @@ pub fn ValidationReport::error_count(self : ValidationReport) -> Int {
 }
 
 ///|
+pub fn ValidationReport::warning_count(self : ValidationReport) -> Int {
+  let mut count = 0
+  for diagnostic in self.diagnostics {
+    if diagnostic.severity == Warning {
+      count = count + 1
+    }
+  }
+  count
+}
+
+///|
+pub fn ValidationReport::diagnostic_count(self : ValidationReport) -> Int {
+  self.diagnostics.length()
+}
+
+///|
 pub fn ValidationReport::has_code(
   self : ValidationReport,
   code : DiagnosticCode,
