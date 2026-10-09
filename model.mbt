@@ -144,6 +144,80 @@ pub fn ProcessModel::find_node(
 }
 
 ///|
+/// Find a sequence flow by its stable BPMN identifier.
+pub fn ProcessModel::find_flow(
+  self : ProcessModel,
+  id : String,
+) -> SequenceFlow? {
+  for flow in self.flows {
+    if flow.id == id {
+      return Some(flow)
+    }
+  }
+  None
+}
+
+///|
+/// Return all outgoing flows in their declaration order.
+pub fn ProcessModel::outgoing_flows(
+  self : ProcessModel,
+  node_id : String,
+) -> Array[SequenceFlow] {
+  let result : Array[SequenceFlow] = []
+  for flow in self.flows {
+    if flow.source == node_id {
+      result.push(flow)
+    }
+  }
+  result
+}
+
+///|
+/// Return all incoming flows in their declaration order.
+pub fn ProcessModel::incoming_flows(
+  self : ProcessModel,
+  node_id : String,
+) -> Array[SequenceFlow] {
+  let result : Array[SequenceFlow] = []
+  for flow in self.flows {
+    if flow.target == node_id {
+      result.push(flow)
+    }
+  }
+  result
+}
+
+///|
+/// Return direct successor node ids without resolving missing references.
+pub fn ProcessModel::successor_ids(
+  self : ProcessModel,
+  node_id : String,
+) -> Array[String] {
+  let result : Array[String] = []
+  for flow in self.flows {
+    if flow.source == node_id {
+      result.push(flow.target)
+    }
+  }
+  result
+}
+
+///|
+/// Return direct predecessor node ids without resolving missing references.
+pub fn ProcessModel::predecessor_ids(
+  self : ProcessModel,
+  node_id : String,
+) -> Array[String] {
+  let result : Array[String] = []
+  for flow in self.flows {
+    if flow.target == node_id {
+      result.push(flow.source)
+    }
+  }
+  result
+}
+
+///|
 pub fn ProcessModel::incoming_count(
   self : ProcessModel,
   node_id : String,
