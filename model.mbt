@@ -17,6 +17,7 @@ pub(all) struct ProcessNode {
   id : String
   name : String
   kind : NodeKind
+  extensions : Array[ExtensionProperty]
 }
 
 ///|
@@ -25,22 +26,22 @@ pub fn ProcessNode::new(
   name : String,
   kind : NodeKind,
 ) -> ProcessNode {
-  { id, name, kind, }
+  { id, name, kind, extensions: [], }
 }
 
 ///|
 pub fn ProcessNode::start_event(id : String, name : String) -> ProcessNode {
-  { id, name, kind: StartEvent, }
+  { id, name, kind: StartEvent, extensions: [], }
 }
 
 ///|
 pub fn ProcessNode::end_event(id : String, name : String) -> ProcessNode {
-  { id, name, kind: EndEvent, }
+  { id, name, kind: EndEvent, extensions: [], }
 }
 
 ///|
 pub fn ProcessNode::task(id : String, name : String) -> ProcessNode {
-  { id, name, kind: Task, }
+  { id, name, kind: Task, extensions: [], }
 }
 
 ///|
@@ -48,12 +49,43 @@ pub fn ProcessNode::exclusive_gateway(
   id : String,
   name : String,
 ) -> ProcessNode {
-  { id, name, kind: ExclusiveGateway, }
+  { id, name, kind: ExclusiveGateway, extensions: [], }
 }
 
 ///|
 pub fn ProcessNode::parallel_gateway(id : String, name : String) -> ProcessNode {
-  { id, name, kind: ParallelGateway, }
+  { id, name, kind: ParallelGateway, extensions: [], }
+}
+
+///|
+pub fn ProcessNode::set_extension(
+  self : ProcessNode,
+  namespace_uri : String,
+  name : String,
+  value : String,
+) -> Unit {
+  set_extension_property(
+    self.extensions,
+    ExtensionProperty::new(namespace_uri, name, value),
+  )
+}
+
+///|
+pub fn ProcessNode::get_extension(
+  self : ProcessNode,
+  namespace_uri : String,
+  name : String,
+) -> String? {
+  get_extension_property(self.extensions, namespace_uri, name)
+}
+
+///|
+pub fn ProcessNode::remove_extension(
+  self : ProcessNode,
+  namespace_uri : String,
+  name : String,
+) -> Bool {
+  remove_extension_property(self.extensions, namespace_uri, name)
 }
 
 ///|
@@ -64,6 +96,7 @@ pub(all) struct SequenceFlow {
   target : String
   name : String
   condition : String?
+  extensions : Array[ExtensionProperty]
 }
 
 ///|
@@ -72,7 +105,7 @@ pub fn SequenceFlow::new(
   source : String,
   target : String,
 ) -> SequenceFlow {
-  { id, source, target, name: "", condition: None, }
+  { id, source, target, name: "", condition: None, extensions: [], }
 }
 
 ///|
@@ -82,7 +115,7 @@ pub fn SequenceFlow::named(
   target : String,
   name : String,
 ) -> SequenceFlow {
-  { id, source, target, name, condition: None, }
+  { id, source, target, name, condition: None, extensions: [], }
 }
 
 ///|
@@ -93,7 +126,38 @@ pub fn SequenceFlow::conditional(
   name : String,
   condition : String,
 ) -> SequenceFlow {
-  { id, source, target, name, condition: Some(condition), }
+  { id, source, target, name, condition: Some(condition), extensions: [], }
+}
+
+///|
+pub fn SequenceFlow::set_extension(
+  self : SequenceFlow,
+  namespace_uri : String,
+  name : String,
+  value : String,
+) -> Unit {
+  set_extension_property(
+    self.extensions,
+    ExtensionProperty::new(namespace_uri, name, value),
+  )
+}
+
+///|
+pub fn SequenceFlow::get_extension(
+  self : SequenceFlow,
+  namespace_uri : String,
+  name : String,
+) -> String? {
+  get_extension_property(self.extensions, namespace_uri, name)
+}
+
+///|
+pub fn SequenceFlow::remove_extension(
+  self : SequenceFlow,
+  namespace_uri : String,
+  name : String,
+) -> Bool {
+  remove_extension_property(self.extensions, namespace_uri, name)
 }
 
 ///|
@@ -103,11 +167,43 @@ pub(all) struct ProcessModel {
   name : String
   nodes : Array[ProcessNode]
   flows : Array[SequenceFlow]
+  extensions : Array[ExtensionProperty]
 }
 
 ///|
 pub fn ProcessModel::new(id : String, name : String) -> ProcessModel {
-  { id, name, nodes: [], flows: [], }
+  { id, name, nodes: [], flows: [], extensions: [], }
+}
+
+///|
+pub fn ProcessModel::set_extension(
+  self : ProcessModel,
+  namespace_uri : String,
+  name : String,
+  value : String,
+) -> Unit {
+  set_extension_property(
+    self.extensions,
+    ExtensionProperty::new(namespace_uri, name, value),
+  )
+}
+
+///|
+pub fn ProcessModel::get_extension(
+  self : ProcessModel,
+  namespace_uri : String,
+  name : String,
+) -> String? {
+  get_extension_property(self.extensions, namespace_uri, name)
+}
+
+///|
+pub fn ProcessModel::remove_extension(
+  self : ProcessModel,
+  namespace_uri : String,
+  name : String,
+) -> Bool {
+  remove_extension_property(self.extensions, namespace_uri, name)
 }
 
 ///|
