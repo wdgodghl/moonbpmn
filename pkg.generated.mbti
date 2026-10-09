@@ -6,9 +6,29 @@ import {
 }
 
 // Values
+pub fn advance_instance(ProcessModel, ProcessInstance, Int) -> Unit
+
+pub fn complete_task(ProcessModel, ProcessInstance, String) -> TaskCompletionResult
+
 pub fn evaluate_condition(String, VariableSet) -> ConditionResult
 
+pub fn execution_result_json(ExecutionResult) -> String
+
+pub fn export_bpmn_xml(ProcessModel) -> String
+
+pub fn import_bpmn_xml(String) -> BpmnImportResult
+
+pub fn replay(Array[ExecutionEvent]) -> ReplayResult
+
+pub fn restore_instance(ProcessModel, InstanceSnapshot) -> RestoreResult
+
 pub fn run(ProcessModel, VariableSet, Int) -> ExecutionResult
+
+pub fn snapshot_instance(ProcessInstance) -> InstanceSnapshot
+
+pub fn start_instance(ProcessModel, VariableSet) -> InstanceStartResult
+
+pub fn to_dot(ProcessModel) -> String
 
 pub fn to_mermaid(ProcessModel) -> String
 
@@ -19,10 +39,42 @@ pub fn validation_report_json(ValidationReport) -> String
 // Errors
 
 // Types and methods
+pub(all) struct BpmnImportIssue {
+  code : BpmnImportIssueCode
+  element : String
+  message : String
+  location : BpmnSourceLocation
+}
+
+pub(all) enum BpmnImportIssueCode {
+  MissingProcess
+  MissingAttribute
+  UnsupportedElement
+  MalformedXml
+} derive(Eq, @debug.Debug)
+pub fn BpmnImportIssueCode::equal(Self, Self) -> Bool
+pub fn BpmnImportIssueCode::not_equal(Self, Self) -> Bool
+pub fn BpmnImportIssueCode::to_repr(Self) -> @debug.Repr
+
+pub(all) enum BpmnImportResult {
+  ImportSuccess(ProcessModel, Array[BpmnImportIssue])
+  ImportFailure(Array[BpmnImportIssue])
+}
+
+pub(all) struct BpmnSourceLocation {
+  line : Int
+  column : Int
+  offset : Int
+} derive(Eq, @debug.Debug)
+pub fn BpmnSourceLocation::equal(Self, Self) -> Bool
+pub fn BpmnSourceLocation::not_equal(Self, Self) -> Bool
+pub fn BpmnSourceLocation::to_repr(Self) -> @debug.Repr
+
 pub(all) enum ConditionResult {
   ConditionMatched(Bool)
   UnknownVariable(String)
   NonBooleanVariable(String)
+  InvalidCondition(String)
 } derive(Eq, @debug.Debug)
 pub fn ConditionResult::equal(Self, Self) -> Bool
 pub fn ConditionResult::not_equal(Self, Self) -> Bool
@@ -59,6 +111,8 @@ pub(all) enum DiagnosticCode {
   MultipleDefaultFlows
   UnreachableNode
   NoPathToEnd
+  CycleDetected
+  ParallelJoinCannotSynchronize
 } derive(Eq)
 pub fn DiagnosticCode::equal(Self, Self) -> Bool
 pub fn DiagnosticCode::not_equal(Self, Self) -> Bool
@@ -73,6 +127,8 @@ pub(all) struct ExecutionEvent {
 pub(all) enum ExecutionEventKind {
   NodeEntered
   FlowSelected
+  TaskWaiting
+  TaskCompleted
   ProcessCompleted
   ExecutionStopped
 } derive(Eq, @debug.Debug)
@@ -89,6 +145,43 @@ pub(all) struct ExecutionResult {
 }
 pub fn ExecutionResult::is_completed(Self) -> Bool
 
+pub(all) struct ExtensionProperty {
+  namespace_uri : String
+  name : String
+  value : String
+} derive(Eq, @debug.Debug)
+pub fn ExtensionProperty::equal(Self, Self) -> Bool
+pub fn ExtensionProperty::new(String, String, String) -> Self
+pub fn ExtensionProperty::not_equal(Self, Self) -> Bool
+pub fn ExtensionProperty::to_repr(Self) -> @debug.Repr
+
+pub(all) struct InstanceSnapshot {
+  process_id : String
+  status : InstanceStatus
+  active_tokens : Array[String]
+  waiting_tasks : Array[String]
+  variables : VariableSet
+  events : Array[ExecutionEvent]
+  parallel_arrivals : Array[String]
+  steps : Int
+}
+
+pub(all) enum InstanceStartResult {
+  InstanceStarted(ProcessInstance)
+  InstanceRejected(ValidationReport)
+}
+
+pub(all) enum InstanceStatus {
+  InstanceReady
+  InstanceRunning
+  InstanceWaiting
+  InstanceCompleted
+  InstanceFailed(String)
+} derive(Eq, @debug.Debug)
+pub fn InstanceStatus::equal(Self, Self) -> Bool
+pub fn InstanceStatus::not_equal(Self, Self) -> Bool
+pub fn InstanceStatus::to_repr(Self) -> @debug.Repr
+
 pub(all) enum NodeKind {
   StartEvent
   EndEvent
@@ -99,17 +192,30 @@ pub(all) enum NodeKind {
 pub fn NodeKind::equal(Self, Self) -> Bool
 pub fn NodeKind::not_equal(Self, Self) -> Bool
 
+pub(all) struct ProcessInstance {
+  process_id : String
+  mut status : InstanceStatus
+  active_tokens : Array[String]
+  waiting_tasks : Array[String]
+  variables : VariableSet
+  events : Array[ExecutionEvent]
+  parallel_arrivals : Array[String]
+  mut steps : Int
+}
+
 pub(all) struct ProcessModel {
   id : String
   name : String
   nodes : Array[ProcessNode]
   flows : Array[SequenceFlow]
+  extensions : Array[ExtensionProperty]
 }
 pub fn ProcessModel::add_flow(Self, SequenceFlow) -> Unit
 pub fn ProcessModel::add_node(Self, ProcessNode) -> Unit
 pub fn ProcessModel::find_flow(Self, String) -> SequenceFlow?
 pub fn ProcessModel::find_node(Self, String) -> ProcessNode?
 pub fn ProcessModel::flow_count(Self) -> Int
+pub fn ProcessModel::get_extension(Self, String, String) -> String?
 pub fn ProcessModel::incoming_count(Self, String) -> Int
 pub fn ProcessModel::incoming_flows(Self, String) -> Array[SequenceFlow]
 pub fn ProcessModel::new(String, String) -> Self
@@ -117,17 +223,23 @@ pub fn ProcessModel::node_count(Self) -> Int
 pub fn ProcessModel::outgoing_count(Self, String) -> Int
 pub fn ProcessModel::outgoing_flows(Self, String) -> Array[SequenceFlow]
 pub fn ProcessModel::predecessor_ids(Self, String) -> Array[String]
+pub fn ProcessModel::remove_extension(Self, String, String) -> Bool
+pub fn ProcessModel::set_extension(Self, String, String, String) -> Unit
 pub fn ProcessModel::successor_ids(Self, String) -> Array[String]
 
 pub(all) struct ProcessNode {
   id : String
   name : String
   kind : NodeKind
+  extensions : Array[ExtensionProperty]
 }
 pub fn ProcessNode::end_event(String, String) -> Self
 pub fn ProcessNode::exclusive_gateway(String, String) -> Self
+pub fn ProcessNode::get_extension(Self, String, String) -> String?
 pub fn ProcessNode::new(String, String, NodeKind) -> Self
 pub fn ProcessNode::parallel_gateway(String, String) -> Self
+pub fn ProcessNode::remove_extension(Self, String, String) -> Bool
+pub fn ProcessNode::set_extension(Self, String, String, String) -> Unit
 pub fn ProcessNode::start_event(String, String) -> Self
 pub fn ProcessNode::task(String, String) -> Self
 
@@ -138,6 +250,23 @@ pub(all) struct ProcessVariable {
 pub fn ProcessVariable::bool(String, Bool) -> Self
 pub fn ProcessVariable::int(String, Int) -> Self
 pub fn ProcessVariable::string(String, String) -> Self
+
+pub(all) enum ReplayResult {
+  ReplaySuccess(ReplaySummary)
+  ReplayFailure(String)
+}
+
+pub(all) struct ReplaySummary {
+  visited_nodes : Array[String]
+  selected_flows : Array[String]
+  completed : Bool
+  event_count : Int
+}
+
+pub(all) enum RestoreResult {
+  RestoreSuccess(ProcessInstance)
+  RestoreFailure(String)
+}
 
 pub(all) enum RunStatus {
   RunCompleted
@@ -155,10 +284,14 @@ pub(all) struct SequenceFlow {
   target : String
   name : String
   condition : String?
+  extensions : Array[ExtensionProperty]
 }
 pub fn SequenceFlow::conditional(String, String, String, String, String) -> Self
+pub fn SequenceFlow::get_extension(Self, String, String) -> String?
 pub fn SequenceFlow::named(String, String, String, String) -> Self
 pub fn SequenceFlow::new(String, String, String) -> Self
+pub fn SequenceFlow::remove_extension(Self, String, String) -> Bool
+pub fn SequenceFlow::set_extension(Self, String, String, String) -> Unit
 
 pub(all) enum Severity {
   Error
@@ -166,6 +299,15 @@ pub(all) enum Severity {
 } derive(Eq)
 pub fn Severity::equal(Self, Self) -> Bool
 pub fn Severity::not_equal(Self, Self) -> Bool
+
+pub(all) enum TaskCompletionResult {
+  TaskCompletedSuccessfully
+  TaskNotWaiting
+  TaskCompletionFailed(String)
+} derive(Eq, @debug.Debug)
+pub fn TaskCompletionResult::equal(Self, Self) -> Bool
+pub fn TaskCompletionResult::not_equal(Self, Self) -> Bool
+pub fn TaskCompletionResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ValidationReport {
   diagnostics : Array[Diagnostic]
@@ -179,6 +321,7 @@ pub fn ValidationReport::warning_count(Self) -> Int
 pub(all) struct VariableSet {
   values : Array[ProcessVariable]
 }
+pub fn VariableSet::copy(Self) -> Self
 pub fn VariableSet::get(Self, String) -> VariableValue?
 pub fn VariableSet::length(Self) -> Int
 pub fn VariableSet::new() -> Self

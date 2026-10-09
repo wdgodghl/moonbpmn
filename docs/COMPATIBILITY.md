@@ -19,6 +19,8 @@ an import issue when they are recognized.
 | XML entities | Supported | Standard entities in imported attributes and text |
 | Normalized XML export | Supported | Stable declaration order and escaped values |
 | CDATA conditions | Supported | Imported and normalized to escaped text |
+| Import issue locations | Supported | One-based line/column and source offset |
+| Namespaced extension metadata | Supported in memory | XML persistence is planned |
 | User/service/script task | Reported unsupported | Preserved compatibility is not claimed |
 | Inclusive/event-based gateway | Reported unsupported | Not executed |
 | Subprocesses | Reported unsupported | Not imported recursively |
@@ -34,13 +36,16 @@ an import issue when they are recognized.
 | Start/end and node-degree rules | Supported |
 | Reachability and path-to-completion | Supported |
 | Exclusive default-flow consistency | Supported |
-| Boolean variables and literal conditions | Supported |
+| Boolean, integer, and string conditions | Supported |
 | Deterministic bounded execution | Supported |
 | Parallel split and synchronization | Supported |
+| Cycle warnings | Supported |
+| Determinable exclusive-to-parallel deadlock | Supported |
 | Append-only event log | Supported |
 | Sequence-checked event replay | Supported |
 | JSON validation/execution reports | Supported |
-| Runtime snapshots and paused tasks | Planned |
+| Paused tasks and explicit completion | Supported |
+| Validated snapshots and restore | Supported |
 
 This table describes the current `main` branch. New supported elements require
 tests for accepted input, rejected input, XML round trips, and runtime behavior.

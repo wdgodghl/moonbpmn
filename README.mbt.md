@@ -7,7 +7,8 @@ tools, process editors, teaching software, CI validation, and embedded runtimes.
 The project is under active development for the 2026 MoonBit October Hackathon.
 The current milestone implements a typed process model, BPMN XML import and
 normalized export, structural validation, typed variables, deterministic token
-execution, verified event replay, JSON reports, and Mermaid/DOT export.
+execution, resumable tasks, snapshots, verified event replay, JSON reports, and
+Mermaid/DOT export.
 
 ## Why MoonBPMN
 
@@ -105,12 +106,41 @@ test "BPMN XML round trip" {
 - exclusive gateways with boolean-variable conditions and one default flow;
 - parallel split and synchronizing join gateways;
 - deterministic FIFO token scheduling with a caller-provided step limit;
+- resumable task instances with validated snapshot and restore;
+- integer, string, and boolean gateway comparisons;
 - namespace-prefixed BPMN XML import and deterministic normalized export;
+- line/column-aware XML import issues and namespaced extension metadata;
 - stable validation diagnostics, JSON reports, ordered events, and replay;
 - Mermaid and Graphviz DOT graph export.
 
 Unsupported BPMN elements are not claimed as compatible. The validator rejects
 structurally invalid models before execution.
+
+Pause and restore a task instance:
+
+```moonbit check
+///|
+test "snapshot a waiting task" {
+  let process = @moonbpmn.ProcessModel::new("resume", "Resume")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::task("review", "Review"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "review"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f2", "review", "done"))
+  match @moonbpmn.start_instance(process, @moonbpmn.VariableSet::new()) {
+    InstanceRejected(_) => fail("valid model should start")
+    InstanceStarted(instance) => {
+      @moonbpmn.advance_instance(process, instance, 20)
+      let snapshot = @moonbpmn.snapshot_instance(instance)
+      match @moonbpmn.restore_instance(process, snapshot) {
+        RestoreFailure(message) => fail(message)
+        RestoreSuccess(restored) =>
+          assert_eq(restored.waiting_tasks, ["review"])
+      }
+    }
+  }
+}
+```
 
 ## Development
 
