@@ -5,9 +5,9 @@ token execution engine. It is intended as reusable infrastructure for workflow
 tools, process editors, teaching software, CI validation, and embedded runtimes.
 
 The project is under active development for the 2026 MoonBit October Hackathon.
-The current milestone implements a typed process model, structural validation,
-typed variables, deterministic token execution, event logs, JSON reports, and
-Mermaid export. BPMN XML import is the next major milestone.
+The current milestone implements a typed process model, BPMN XML import and
+normalized export, structural validation, typed variables, deterministic token
+execution, verified event replay, JSON reports, and Mermaid/DOT export.
 
 ## Why MoonBPMN
 
@@ -73,10 +73,30 @@ Run the example CLI:
 moon run cmd/main
 ```
 
-The example validates an order-approval model, prints a JSON validation report,
-runs the approved branch, reports the append-only event count, and emits a
-Mermaid flowchart. This makes it a reproducible smoke test as well as an API
-demonstration.
+The example exports and re-imports an order-approval process as BPMN XML,
+validates it, runs the approved branch, emits replayable JSON, verifies the
+event log, and prints a Mermaid flowchart. It is both an API demonstration and
+a reproducible CI smoke test.
+
+Import and normalize BPMN XML:
+
+```moonbit check
+///|
+test "BPMN XML round trip" {
+  let source = @moonbpmn.ProcessModel::new("minimal", "Minimal")
+  source.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  source.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  source.add_flow(@moonbpmn.SequenceFlow::new("finish", "start", "done"))
+  let xml = @moonbpmn.export_bpmn_xml(source)
+  match @moonbpmn.import_bpmn_xml(xml) {
+    ImportFailure(_) => fail("exported XML should import")
+    ImportSuccess(process, issues) => {
+      assert_eq(issues.length(), 0)
+      assert_true(@moonbpmn.validate(process).is_valid())
+    }
+  }
+}
+```
 
 ## Supported executable subset
 
@@ -85,7 +105,9 @@ demonstration.
 - exclusive gateways with boolean-variable conditions and one default flow;
 - parallel split and synchronizing join gateways;
 - deterministic FIFO token scheduling with a caller-provided step limit;
-- stable validation diagnostics, JSON reports, and ordered execution events.
+- namespace-prefixed BPMN XML import and deterministic normalized export;
+- stable validation diagnostics, JSON reports, ordered events, and replay;
+- Mermaid and Graphviz DOT graph export.
 
 Unsupported BPMN elements are not claimed as compatible. The validator rejects
 structurally invalid models before execution.
@@ -103,7 +125,8 @@ moon fmt --check
 
 See [docs/PROJECT_SCOPE.md](docs/PROJECT_SCOPE.md) for the committed scope and
 [docs/DUPLICATION_CHECK.md](docs/DUPLICATION_CHECK.md) for the public-project
-comparison that motivated this project.
+comparison that motivated this project. The precise supported XML and execution
+surface is listed in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## License
 

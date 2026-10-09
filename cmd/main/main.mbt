@@ -22,18 +22,23 @@ fn build_order_approval() -> @moonbpmn.ProcessModel {
 }
 
 ///|
-fn status_name(status : @moonbpmn.RunStatus) -> String {
-  match status {
-    RunCompleted => "completed"
-    RunInvalidModel => "invalid-model"
-    RunStalled(message) => "stalled: " + message
-    RunStepLimitExceeded => "step-limit-exceeded"
-  }
-}
-
-///|
 fn main {
-  let process = build_order_approval()
+  let source = build_order_approval()
+  let xml = @moonbpmn.export_bpmn_xml(source)
+  let process = match @moonbpmn.import_bpmn_xml(xml) {
+    ImportFailure(issues) => {
+      println(
+        "BPMN XML import failed with " +
+        issues.length().to_string() +
+        " issue(s)",
+      )
+      return
+    }
+    ImportSuccess(process, issues) => {
+      println("BPMN XML import issues: " + issues.length().to_string())
+      process
+    }
+  }
   let report = @moonbpmn.validate(process)
   println("MoonBPMN runnable example")
   println("process: " + process.id)
@@ -47,9 +52,13 @@ fn main {
   let variables = @moonbpmn.VariableSet::new()
   variables.set(@moonbpmn.ProcessVariable::bool("approved", true))
   let result = @moonbpmn.run(process, variables, 100)
-  println("execution: " + status_name(result.status))
-  println("steps: " + result.steps.to_string())
-  println("events: " + result.events.length().to_string())
+  println("BPMN XML bytes: " + xml.length().to_string())
+  println("execution JSON: " + @moonbpmn.execution_result_json(result))
+  match @moonbpmn.replay(result.events) {
+    ReplayFailure(message) => println("replay: failed: " + message)
+    ReplaySuccess(summary) =>
+      println("replay events: " + summary.event_count.to_string())
+  }
   println("--- Mermaid ---")
   println(@moonbpmn.to_mermaid(process))
 }

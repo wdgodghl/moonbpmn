@@ -8,12 +8,12 @@ should be able to depend on the same model, validator, and runtime.
 
 ## Current milestone (2026-10-09)
 
-The repository already provides the typed graph, stable diagnostics, structural
-and completion-path validation, typed variables, exclusive and parallel token
-semantics, ordered execution events, JSON validation reports, Mermaid export,
-and an end-to-end executable example. All tests run on Native, Wasm, Wasm GC,
-and JavaScript in CI. XML interoperability, resumable task instances, snapshots,
-and replay remain planned work and are not presented as implemented.
+The repository already provides the typed graph, BPMN XML import and normalized
+export, stable diagnostics, structural and completion-path validation, typed
+variables, exclusive and parallel token semantics, ordered execution events,
+verified replay, JSON reports, Mermaid/DOT export, and an end-to-end executable
+example. All tests run on Native, Wasm, Wasm GC, and JavaScript in CI. Resumable
+task instances and runtime snapshots remain planned work.
 
 ## Committed release scope
 
