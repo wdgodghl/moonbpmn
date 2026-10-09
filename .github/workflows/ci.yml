@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: moonbitlang/setup-moonbit@v1
+      - name: Toolchain version
+        run: moon version --all
+      - name: Format
+        run: moon fmt --check
+      - name: Check
+        run: moon check --target all
+      - name: Build
+        run: moon build --target all
+      - name: Test
+        run: moon test --target all

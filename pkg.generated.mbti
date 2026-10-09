@@ -1,0 +1,103 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "wdgodghl/moonbpmn"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn validate(ProcessModel) -> ValidationReport
+
+// Errors
+
+// Types and methods
+pub(all) struct Diagnostic {
+  severity : Severity
+  code : DiagnosticCode
+  element_id : String
+  message : String
+}
+pub fn Diagnostic::error(DiagnosticCode, String, String) -> Self
+pub fn Diagnostic::warning(DiagnosticCode, String, String) -> Self
+
+pub(all) enum DiagnosticCode {
+  EmptyProcessId
+  DuplicateNodeId
+  DuplicateFlowId
+  EmptyNodeId
+  EmptyFlowId
+  MissingSource
+  MissingTarget
+  MissingStartEvent
+  MultipleStartEvents
+  MissingEndEvent
+  StartHasIncoming
+  StartHasNoOutgoing
+  EndHasOutgoing
+  EndHasNoIncoming
+  TaskHasNoIncoming
+  TaskHasNoOutgoing
+  UnreachableNode
+} derive(Eq, @debug.Debug)
+
+pub(all) enum NodeKind {
+  StartEvent
+  EndEvent
+  Task
+  ExclusiveGateway
+  ParallelGateway
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProcessModel {
+  id : String
+  name : String
+  nodes : Array[ProcessNode]
+  flows : Array[SequenceFlow]
+}
+pub fn ProcessModel::add_flow(Self, SequenceFlow) -> Unit
+pub fn ProcessModel::add_node(Self, ProcessNode) -> Unit
+pub fn ProcessModel::find_node(Self, String) -> ProcessNode?
+pub fn ProcessModel::flow_count(Self) -> Int
+pub fn ProcessModel::incoming_count(Self, String) -> Int
+pub fn ProcessModel::new(String, String) -> Self
+pub fn ProcessModel::node_count(Self) -> Int
+pub fn ProcessModel::outgoing_count(Self, String) -> Int
+
+pub(all) struct ProcessNode {
+  id : String
+  name : String
+  kind : NodeKind
+}
+pub fn ProcessNode::end_event(String, String) -> Self
+pub fn ProcessNode::exclusive_gateway(String, String) -> Self
+pub fn ProcessNode::new(String, String, NodeKind) -> Self
+pub fn ProcessNode::parallel_gateway(String, String) -> Self
+pub fn ProcessNode::start_event(String, String) -> Self
+pub fn ProcessNode::task(String, String) -> Self
+
+pub(all) struct SequenceFlow {
+  id : String
+  source : String
+  target : String
+  name : String
+  condition : String?
+}
+pub fn SequenceFlow::conditional(String, String, String, String, String) -> Self
+pub fn SequenceFlow::named(String, String, String, String) -> Self
+pub fn SequenceFlow::new(String, String, String) -> Self
+
+pub(all) enum Severity {
+  Error
+  Warning
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ValidationReport {
+  diagnostics : Array[Diagnostic]
+}
+pub fn ValidationReport::error_count(Self) -> Int
+pub fn ValidationReport::has_code(Self, DiagnosticCode) -> Bool
+pub fn ValidationReport::is_valid(Self) -> Bool
+
+// Type aliases
+
+// Traits

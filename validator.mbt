@@ -1,0 +1,253 @@
+///|
+fn push_error(
+  diagnostics : Array[Diagnostic],
+  code : DiagnosticCode,
+  element_id : String,
+  message : String,
+) -> Unit {
+  diagnostics.push(Diagnostic::error(code, element_id, message))
+}
+
+///|
+fn validate_process_identity(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  if process.id == "" {
+    push_error(diagnostics, EmptyProcessId, "", "process id must not be empty")
+  }
+}
+
+///|
+fn validate_node_identity(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for index, node in process.nodes {
+    if node.id == "" {
+      push_error(diagnostics, EmptyNodeId, "", "node id must not be empty")
+    }
+    for previous_index = 0
+        previous_index < index
+        previous_index = previous_index + 1 {
+      if process.nodes[previous_index].id == node.id {
+        push_error(
+          diagnostics,
+          DuplicateNodeId,
+          node.id,
+          "node id appears more than once",
+        )
+        break
+      }
+    }
+  }
+}
+
+///|
+fn validate_flow_identity(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for index, flow in process.flows {
+    if flow.id == "" {
+      push_error(
+        diagnostics,
+        EmptyFlowId,
+        "",
+        "sequence flow id must not be empty",
+      )
+    }
+    for previous_index = 0
+        previous_index < index
+        previous_index = previous_index + 1 {
+      if process.flows[previous_index].id == flow.id {
+        push_error(
+          diagnostics,
+          DuplicateFlowId,
+          flow.id,
+          "sequence flow id appears more than once",
+        )
+        break
+      }
+    }
+  }
+}
+
+///|
+fn validate_flow_endpoints(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for flow in process.flows {
+    if process.find_node(flow.source) is None {
+      push_error(
+        diagnostics,
+        MissingSource,
+        flow.id,
+        "sequence flow source does not exist: " + flow.source,
+      )
+    }
+    if process.find_node(flow.target) is None {
+      push_error(
+        diagnostics,
+        MissingTarget,
+        flow.id,
+        "sequence flow target does not exist: " + flow.target,
+      )
+    }
+  }
+}
+
+///|
+fn validate_event_counts(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  let mut starts = 0
+  let mut ends = 0
+  for node in process.nodes {
+    match node.kind {
+      StartEvent => starts = starts + 1
+      EndEvent => ends = ends + 1
+      _ => ()
+    }
+  }
+  if starts == 0 {
+    push_error(
+      diagnostics,
+      MissingStartEvent,
+      process.id,
+      "process has no start event",
+    )
+  } else if starts > 1 {
+    push_error(
+      diagnostics,
+      MultipleStartEvents,
+      process.id,
+      "the initial executable subset requires exactly one start event",
+    )
+  }
+  if ends == 0 {
+    push_error(
+      diagnostics,
+      MissingEndEvent,
+      process.id,
+      "process has no end event",
+    )
+  }
+}
+
+///|
+fn validate_node_degrees(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for node in process.nodes {
+    let incoming = process.incoming_count(node.id)
+    let outgoing = process.outgoing_count(node.id)
+    match node.kind {
+      StartEvent => {
+        if incoming > 0 {
+          push_error(
+            diagnostics,
+            StartHasIncoming,
+            node.id,
+            "start event must not have incoming flows",
+          )
+        }
+        if outgoing == 0 {
+          push_error(
+            diagnostics,
+            StartHasNoOutgoing,
+            node.id,
+            "start event must have an outgoing flow",
+          )
+        }
+      }
+      EndEvent => {
+        if outgoing > 0 {
+          push_error(
+            diagnostics,
+            EndHasOutgoing,
+            node.id,
+            "end event must not have outgoing flows",
+          )
+        }
+        if incoming == 0 {
+          push_error(
+            diagnostics,
+            EndHasNoIncoming,
+            node.id,
+            "end event must have an incoming flow",
+          )
+        }
+      }
+      Task => {
+        if incoming == 0 {
+          push_error(
+            diagnostics,
+            TaskHasNoIncoming,
+            node.id,
+            "task must have an incoming flow",
+          )
+        }
+        if outgoing == 0 {
+          push_error(
+            diagnostics,
+            TaskHasNoOutgoing,
+            node.id,
+            "task must have an outgoing flow",
+          )
+        }
+      }
+      ExclusiveGateway | ParallelGateway => ()
+    }
+  }
+}
+
+///|
+fn contains_id(ids : Array[String], id : String) -> Bool {
+  for candidate in ids {
+    if candidate == id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn validate_reachability(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  let queue : Array[String] = []
+  let visited : Array[String] = []
+  for node in process.nodes {
+    if node.kind == StartEvent {
+      queue.push(node.id)
+    }
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let current = queue[cursor]
+    cursor = cursor + 1
+    if !contains_id(visited, current) {
+      visited.push(current)
+      for flow in process.flows {
+        if flow.source == current && !contains_id(visited, flow.target) {
+          queue.push(flow.target)
+        }
+      }
+    }
+  }
+  for node in process.nodes {
+    if !contains_id(visited, node.id) {
+      push_error(
+        diagnostics,
+        UnreachableNode,
+        node.id,
+        "node is not reachable from a start event",
+      )
+    }
+  }
+}
