@@ -6,6 +6,15 @@ Build a reusable MoonBit implementation of an executable BPMN 2.0 core. The
 project is a library first: editors, CLIs, CI systems, and Wasm applications
 should be able to depend on the same model, validator, and runtime.
 
+## Current milestone (2026-10-09)
+
+The repository already provides the typed graph, stable diagnostics, structural
+and completion-path validation, typed variables, exclusive and parallel token
+semantics, ordered execution events, JSON validation reports, Mermaid export,
+and an end-to-end executable example. All tests run on Native, Wasm, Wasm GC,
+and JavaScript in CI. XML interoperability, resumable task instances, snapshots,
+and replay remain planned work and are not presented as implemented.
+
 ## Committed release scope
 
 ### Process model
