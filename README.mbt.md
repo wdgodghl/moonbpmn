@@ -5,8 +5,9 @@ token execution engine. It is intended as reusable infrastructure for workflow
 tools, process editors, teaching software, CI validation, and embedded runtimes.
 
 The project is under active development for the 2026 MoonBit October Hackathon.
-The first milestone implements a typed process model and structural validation;
-BPMN XML import and token execution are the next milestones.
+The current milestone implements a typed process model, structural validation,
+typed variables, deterministic token execution, event logs, JSON reports, and
+Mermaid export. BPMN XML import is the next major milestone.
 
 ## Why MoonBPMN
 
@@ -40,11 +41,54 @@ test "validate a minimal process" {
 }
 ```
 
+Execute a conditional approval process:
+
+```moonbit check
+///|
+test "execute an exclusive choice" {
+  let process = @moonbpmn.ProcessModel::new("choice", "Choice")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::exclusive_gateway("route", "Route"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("yes", "Accepted"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("no", "Rejected"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "route"))
+  process.add_flow(
+    @moonbpmn.SequenceFlow::conditional(
+      "accept", "route", "yes", "accepted", "accepted",
+    ),
+  )
+  process.add_flow(@moonbpmn.SequenceFlow::new("reject", "route", "no"))
+
+  let variables = @moonbpmn.VariableSet::new()
+  variables.set(@moonbpmn.ProcessVariable::bool("accepted", true))
+  let result = @moonbpmn.run(process, variables, 100)
+  assert_true(result.is_completed())
+  assert_eq(result.selected_flows, ["f1", "accept"])
+}
+```
+
 Run the example CLI:
 
 ```shell
 moon run cmd/main
 ```
+
+The example validates an order-approval model, prints a JSON validation report,
+runs the approved branch, reports the append-only event count, and emits a
+Mermaid flowchart. This makes it a reproducible smoke test as well as an API
+demonstration.
+
+## Supported executable subset
+
+- start and end events;
+- automatically completed tasks;
+- exclusive gateways with boolean-variable conditions and one default flow;
+- parallel split and synchronizing join gateways;
+- deterministic FIFO token scheduling with a caller-provided step limit;
+- stable validation diagnostics, JSON reports, and ordered execution events.
+
+Unsupported BPMN elements are not claimed as compatible. The validator rejects
+structurally invalid models before execution.
 
 ## Development
 
