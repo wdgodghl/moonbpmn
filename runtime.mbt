@@ -70,6 +70,7 @@ pub fn run(
   let queue : Array[String] = []
   let visited_nodes : Array[String] = []
   let selected_flows : Array[String] = []
+  let parallel_arrivals : Array[String] = []
   for node in process.nodes {
     if node.kind == StartEvent {
       queue.push(node.id)
@@ -148,10 +149,23 @@ pub fn run(
             )
         }
       }
-      ParallelGateway =>
-        for flow in outgoing {
-          enqueue_flow(queue, selected_flows, flow)
+      ParallelGateway => {
+        let required = process.incoming_count(node.id)
+        let mut arrivals = 0
+        if required > 1 {
+          parallel_arrivals.push(node.id)
+          for arrived_id in parallel_arrivals {
+            if arrived_id == node.id {
+              arrivals = arrivals + 1
+            }
+          }
         }
+        if required <= 1 || arrivals % required == 0 {
+          for flow in outgoing {
+            enqueue_flow(queue, selected_flows, flow)
+          }
+        }
+      }
       StartEvent | Task => {
         if outgoing.length() != 1 {
           return stalled(

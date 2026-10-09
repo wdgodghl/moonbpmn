@@ -63,3 +63,26 @@ test "runner reports unknown condition variables" {
     @moonbpmn.RunStatus::RunStalled("unknown condition variable: approved"),
   )
 }
+
+///|
+test "parallel join waits for every incoming token" {
+  let process = @moonbpmn.ProcessModel::new("parallel", "Parallel review")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::parallel_gateway("fork", "Fork"))
+  process.add_node(@moonbpmn.ProcessNode::task("legal", "Legal review"))
+  process.add_node(@moonbpmn.ProcessNode::task("risk", "Risk review"))
+  process.add_node(@moonbpmn.ProcessNode::parallel_gateway("join", "Join"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "fork"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("legal", "fork", "legal"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("risk", "fork", "risk"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("legal_join", "legal", "join"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("risk_join", "risk", "join"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("finish", "join", "done"))
+  let result = @moonbpmn.run(process, @moonbpmn.VariableSet::new(), 30)
+  assert_true(result.is_completed())
+  assert_eq(result.selected_flows, [
+    "f1", "legal", "risk", "legal_join", "risk_join", "finish",
+  ])
+  assert_eq(result.visited_nodes.length(), 7)
+}
