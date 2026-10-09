@@ -133,6 +133,10 @@ fn select_instance_branch(
             )
             return None
           }
+          InvalidCondition(message) => {
+            instance_fail(instance, "invalid condition: " + message)
+            return None
+          }
         }
     }
   }

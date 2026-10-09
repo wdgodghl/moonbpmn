@@ -188,6 +188,14 @@ pub fn run(
                     events,
                     steps,
                   )
+                InvalidCondition(message) =>
+                  return stalled(
+                    "invalid condition: " + message,
+                    visited_nodes,
+                    selected_flows,
+                    events,
+                    steps,
+                  )
               }
           }
         }

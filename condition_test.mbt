@@ -36,3 +36,44 @@ test "condition literals are deterministic" {
     @moonbpmn.ConditionResult::ConditionMatched(false),
   )
 }
+
+///|
+test "condition evaluator compares integer variables" {
+  let variables = @moonbpmn.VariableSet::new()
+  variables.set(@moonbpmn.ProcessVariable::int("amount", 125))
+  assert_eq(
+    @moonbpmn.evaluate_condition("amount >= 100", variables),
+    @moonbpmn.ConditionResult::ConditionMatched(true),
+  )
+  assert_eq(
+    @moonbpmn.evaluate_condition("amount < 100", variables),
+    @moonbpmn.ConditionResult::ConditionMatched(false),
+  )
+}
+
+///|
+test "condition evaluator compares quoted strings and negates booleans" {
+  let variables = @moonbpmn.VariableSet::new()
+  variables.set(@moonbpmn.ProcessVariable::string("region", "EU"))
+  variables.set(@moonbpmn.ProcessVariable::bool("blocked", false))
+  assert_eq(
+    @moonbpmn.evaluate_condition("region == \"EU\"", variables),
+    @moonbpmn.ConditionResult::ConditionMatched(true),
+  )
+  assert_eq(
+    @moonbpmn.evaluate_condition("!blocked", variables),
+    @moonbpmn.ConditionResult::ConditionMatched(true),
+  )
+}
+
+///|
+test "condition evaluator rejects literals with the wrong type" {
+  let variables = @moonbpmn.VariableSet::new()
+  variables.set(@moonbpmn.ProcessVariable::int("amount", 10))
+  assert_eq(
+    @moonbpmn.evaluate_condition("amount == \"ten\"", variables),
+    @moonbpmn.ConditionResult::InvalidCondition(
+      "integer comparison requires an integer literal",
+    ),
+  )
+}
