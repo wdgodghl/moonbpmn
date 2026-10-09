@@ -32,6 +32,8 @@ pub(all) enum DiagnosticCode {
   MultipleDefaultFlows
   UnreachableNode
   NoPathToEnd
+  CycleDetected
+  ParallelJoinCannotSynchronize
 } derive(Eq)
 
 ///|

@@ -30,6 +30,8 @@ fn diagnostic_code_name(code : DiagnosticCode) -> String {
     MultipleDefaultFlows => "multiple_default_flows"
     UnreachableNode => "unreachable_node"
     NoPathToEnd => "no_path_to_end"
+    CycleDetected => "cycle_detected"
+    ParallelJoinCannotSynchronize => "parallel_join_cannot_synchronize"
   }
 }
 

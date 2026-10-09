@@ -11,5 +11,7 @@ pub fn validate(process : ProcessModel) -> ValidationReport {
   validate_gateway_defaults(process, diagnostics)
   validate_reachability(process, diagnostics)
   validate_path_to_end(process, diagnostics)
+  validate_cycles(process, diagnostics)
+  validate_parallel_join_deadlocks(process, diagnostics)
   ValidationReport::new(diagnostics)
 }

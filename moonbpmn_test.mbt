@@ -79,3 +79,46 @@ test "reachable cycle without completion path is diagnosed" {
   let report = @moonbpmn.validate(process)
   assert_true(report.has_code(@moonbpmn.DiagnosticCode::NoPathToEnd))
 }
+
+///|
+test "cycle with an exit is valid but produces a warning" {
+  let process = @moonbpmn.ProcessModel::new("cycle_exit", "Cycle with exit")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::task("work", "Work"))
+  process.add_node(@moonbpmn.ProcessNode::exclusive_gateway("choice", "Again?"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "work"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f2", "work", "choice"))
+  process.add_flow(
+    @moonbpmn.SequenceFlow::conditional(
+      "again", "choice", "work", "again", "true",
+    ),
+  )
+  process.add_flow(@moonbpmn.SequenceFlow::new("finish", "choice", "done"))
+  let report = @moonbpmn.validate(process)
+  assert_true(report.is_valid())
+  assert_true(report.has_code(@moonbpmn.DiagnosticCode::CycleDetected))
+  assert_eq(report.warning_count(), 2)
+}
+
+///|
+test "parallel join rejects mutually exclusive direct inputs" {
+  let process = @moonbpmn.ProcessModel::new("deadlock", "Deadlock")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::exclusive_gateway("choice", "Choose"))
+  process.add_node(@moonbpmn.ProcessNode::parallel_gateway("join", "Join"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "choice"))
+  process.add_flow(
+    @moonbpmn.SequenceFlow::conditional(
+      "left", "choice", "join", "left", "true",
+    ),
+  )
+  process.add_flow(@moonbpmn.SequenceFlow::new("right", "choice", "join"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("finish", "join", "done"))
+  let report = @moonbpmn.validate(process)
+  assert_false(report.is_valid())
+  assert_true(
+    report.has_code(@moonbpmn.DiagnosticCode::ParallelJoinCannotSynchronize),
+  )
+}

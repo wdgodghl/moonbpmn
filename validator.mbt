@@ -9,6 +9,16 @@ fn push_error(
 }
 
 ///|
+fn push_warning(
+  diagnostics : Array[Diagnostic],
+  code : DiagnosticCode,
+  element_id : String,
+  message : String,
+) -> Unit {
+  diagnostics.push(Diagnostic::warning(code, element_id, message))
+}
+
+///|
 fn validate_process_identity(
   process : ProcessModel,
   diagnostics : Array[Diagnostic],
@@ -330,6 +340,90 @@ fn validate_path_to_end(
         node.id,
         "node has no directed path to an end event",
       )
+    }
+  }
+}
+
+///|
+fn has_nonempty_path(
+  process : ProcessModel,
+  source_id : String,
+  target_id : String,
+) -> Bool {
+  let queue : Array[String] = []
+  let visited : Array[String] = []
+  for successor in process.successor_ids(source_id) {
+    queue.push(successor)
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let current = queue[cursor]
+    cursor = cursor + 1
+    if current == target_id {
+      return true
+    }
+    if !contains_id(visited, current) {
+      visited.push(current)
+      for successor in process.successor_ids(current) {
+        if !contains_id(visited, successor) {
+          queue.push(successor)
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
+fn validate_cycles(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for node in process.nodes {
+    if has_nonempty_path(process, node.id, node.id) {
+      push_warning(
+        diagnostics,
+        CycleDetected,
+        node.id,
+        "node participates in a directed cycle; use a runtime step limit",
+      )
+    }
+  }
+}
+
+///|
+fn validate_parallel_join_deadlocks(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for node in process.nodes {
+    if node.kind != ParallelGateway {
+      continue
+    }
+    let incoming = process.incoming_flows(node.id)
+    if incoming.length() < 2 {
+      continue
+    }
+    let common_source = incoming[0].source
+    let mut same_source = true
+    for flow in incoming {
+      if flow.source != common_source {
+        same_source = false
+      }
+    }
+    if same_source {
+      match process.find_node(common_source) {
+        Some(source) =>
+          if source.kind == ExclusiveGateway {
+            push_error(
+              diagnostics,
+              ParallelJoinCannotSynchronize,
+              node.id,
+              "parallel join waits for mutually exclusive incoming flows",
+            )
+          }
+        None => ()
+      }
     }
   }
 }
