@@ -200,7 +200,52 @@ fn validate_node_degrees(
           )
         }
       }
-      ExclusiveGateway | ParallelGateway => ()
+      ExclusiveGateway | ParallelGateway => {
+        if incoming == 0 {
+          push_error(
+            diagnostics,
+            GatewayHasNoIncoming,
+            node.id,
+            "gateway must have an incoming flow",
+          )
+        }
+        if outgoing == 0 {
+          push_error(
+            diagnostics,
+            GatewayHasNoOutgoing,
+            node.id,
+            "gateway must have an outgoing flow",
+          )
+        }
+      }
+    }
+  }
+}
+
+///|
+fn validate_gateway_defaults(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  for node in process.nodes {
+    if node.kind == ExclusiveGateway {
+      let outgoing = process.outgoing_flows(node.id)
+      if outgoing.length() > 1 {
+        let mut defaults = 0
+        for flow in outgoing {
+          if flow.condition is None {
+            defaults = defaults + 1
+          }
+        }
+        if defaults > 1 {
+          push_error(
+            diagnostics,
+            MultipleDefaultFlows,
+            node.id,
+            "exclusive split may have at most one unconditional default flow",
+          )
+        }
+      }
     }
   }
 }
@@ -247,6 +292,43 @@ fn validate_reachability(
         UnreachableNode,
         node.id,
         "node is not reachable from a start event",
+      )
+    }
+  }
+}
+
+///|
+fn validate_path_to_end(
+  process : ProcessModel,
+  diagnostics : Array[Diagnostic],
+) -> Unit {
+  let queue : Array[String] = []
+  let can_complete : Array[String] = []
+  for node in process.nodes {
+    if node.kind == EndEvent {
+      queue.push(node.id)
+    }
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let current = queue[cursor]
+    cursor = cursor + 1
+    if !contains_id(can_complete, current) {
+      can_complete.push(current)
+      for flow in process.flows {
+        if flow.target == current && !contains_id(can_complete, flow.source) {
+          queue.push(flow.source)
+        }
+      }
+    }
+  }
+  for node in process.nodes {
+    if !contains_id(can_complete, node.id) {
+      push_error(
+        diagnostics,
+        NoPathToEnd,
+        node.id,
+        "node has no directed path to an end event",
       )
     }
   }

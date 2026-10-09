@@ -51,3 +51,31 @@ test "graph queries preserve sequence flow declaration order" {
     None => fail("expected to find flow to_left")
   }
 }
+
+///|
+test "exclusive gateway rejects multiple unconditional branches" {
+  let process = @moonbpmn.ProcessModel::new("bad_choice", "Bad choice")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::exclusive_gateway("choice", "Choose"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("left", "Left"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("right", "Right"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "choice"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f2", "choice", "left"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f3", "choice", "right"))
+  let report = @moonbpmn.validate(process)
+  assert_true(report.has_code(@moonbpmn.DiagnosticCode::MultipleDefaultFlows))
+}
+
+///|
+test "reachable cycle without completion path is diagnosed" {
+  let process = @moonbpmn.ProcessModel::new("loop", "Loop")
+  process.add_node(@moonbpmn.ProcessNode::start_event("start", "Start"))
+  process.add_node(@moonbpmn.ProcessNode::task("a", "A"))
+  process.add_node(@moonbpmn.ProcessNode::task("b", "B"))
+  process.add_node(@moonbpmn.ProcessNode::end_event("done", "Done"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f1", "start", "a"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f2", "a", "b"))
+  process.add_flow(@moonbpmn.SequenceFlow::new("f3", "b", "a"))
+  let report = @moonbpmn.validate(process)
+  assert_true(report.has_code(@moonbpmn.DiagnosticCode::NoPathToEnd))
+}

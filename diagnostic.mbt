@@ -27,7 +27,11 @@ pub(all) enum DiagnosticCode {
   EndHasNoIncoming
   TaskHasNoIncoming
   TaskHasNoOutgoing
+  GatewayHasNoIncoming
+  GatewayHasNoOutgoing
+  MultipleDefaultFlows
   UnreachableNode
+  NoPathToEnd
 } derive(Eq)
 
 ///|

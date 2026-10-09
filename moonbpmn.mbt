@@ -8,6 +8,8 @@ pub fn validate(process : ProcessModel) -> ValidationReport {
   validate_flow_endpoints(process, diagnostics)
   validate_event_counts(process, diagnostics)
   validate_node_degrees(process, diagnostics)
+  validate_gateway_defaults(process, diagnostics)
   validate_reachability(process, diagnostics)
+  validate_path_to_end(process, diagnostics)
   ValidationReport::new(diagnostics)
 }
